@@ -21,6 +21,8 @@
 - [ ] Lista rozwijana z wyborem jednej z 3 metod wykrywania GCP
 - [ ] Dynamiczna zmiana wyświetlanych parametrów po zmianie metody
 
+
+
 ### **Przetwarzanie**
 
 **na 3**
@@ -52,7 +54,10 @@
 **na 5**
 
 - [ ] Wykrywanie fotopunktów dodatkowymi metodami
-- [ ] Obliczenie
-  - [ ] średni błąd reprojekcji dla fotopunktów
-  - [ ] kompletność wykryć
-  - [ ] odporność na obserwacje odstające
+  - [x] Detektor narożników (na 4)
+  - [ ] Detektor szachownic `detectMarkers`
+  - [ ] .....
+- [x] Obliczenie
+  - [x] średni błąd reprojekcji dla fotopunktów
+  - [x] kompletność wykryć
+  - [x] odporność na obserwacje odstające

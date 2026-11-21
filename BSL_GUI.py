@@ -3,12 +3,13 @@ import Metashape
 from PySide2 import QtCore, QtWidgets
 
 
-import scripts.gcp
-import scripts.processing
-importlib.reload(scripts.gcp)
-importlib.reload(scripts.processing)
+for _name in ("scripts.utils", "scripts.gcp", "scripts.detectors",
+              "scripts.markers", "scripts.report", "scripts.processing"):
+    importlib.reload(importlib.import_module(_name))
 
-from scripts.processing import RunStage1, RunStage2, RunStage3, CurrentMarkerReport
+from scripts.processing import RunStage1, RunStage2, RunStage3
+from scripts.report import CurrentMarkerReport
+from scripts.detectors import METHODS
 
 
 
@@ -27,7 +28,7 @@ def run_wizard():
     for c in range(2):
         grid1.setColumnStretch(c, 1)
 
-    # Nazwa chunka - 0-1, 0 (przez obie kolumny)
+    # Nazwa chunka - 0-1, 0 
     chunk_name_edit = QtWidgets.QLineEdit()
     chunk_name_edit.setPlaceholderText("Chunk 1")
     grid1.addWidget(QtWidgets.QLabel("Nazwa chunka"), 0, 0, 1, 2)
@@ -124,46 +125,92 @@ def run_wizard():
     tab1_layout.addStretch(1)
     tabs.addTab(tab1, "Dane wejściowe i orientacja")
 
-    # SEKCJA 2b - Automatyczny pomiar osnowy (zakładka 2)
+    # SEKCJA 2b - Automatyczny pomiar osnowy
     box_gcp = QtWidgets.QGroupBox("Automatyczny pomiar osnowy")
     grid_gcp = QtWidgets.QGridLayout(box_gcp)
     grid_gcp.setColumnStretch(0, 1)
     grid_gcp.setColumnStretch(1, 1)
 
+    # Metoda wykrywania - 0-1, 0-1
+    method_combo = QtWidgets.QComboBox()
+    for key, text in METHODS.items():
+        method_combo.addItem(text, key)
+    grid_gcp.addWidget(QtWidgets.QLabel("Metoda wykrywania fotopunktów"), 0, 0, 1, 2)
+    grid_gcp.addWidget(method_combo, 1, 0, 1, 2)
+
+    # Parametry wspólne - 2-3
+    max_dist_spin = QtWidgets.QDoubleSpinBox()
+    max_dist_spin.setRange(1, 200)
+    max_dist_spin.setValue(15)
+    grid_gcp.addWidget(QtWidgets.QLabel("Maks. odległość od przybliżenia [px]"), 2, 0)
+    grid_gcp.addWidget(max_dist_spin, 3, 0)
+
+    # Parametry detektora narożników - 4-5
+    search_win_label = QtWidgets.QLabel("Okno wyszukiwania wokół rzutu [px]")
     search_win_spin = QtWidgets.QSpinBox()
     search_win_spin.setRange(10, 500)
     search_win_spin.setSingleStep(10)
     search_win_spin.setValue(50)
-    grid_gcp.addWidget(QtWidgets.QLabel("Okno wyszukiwania wokół rzutu [px]"), 0, 0)
-    grid_gcp.addWidget(search_win_spin, 1, 0)
+    grid_gcp.addWidget(search_win_label, 4, 0)
+    grid_gcp.addWidget(search_win_spin, 5, 0)
 
-    max_dist_spin = QtWidgets.QDoubleSpinBox()
-    max_dist_spin.setRange(1, 200)
-    max_dist_spin.setValue(15)
-    grid_gcp.addWidget(QtWidgets.QLabel("Maks. odległość od przybliżenia [px]"), 0, 1)
-    grid_gcp.addWidget(max_dist_spin, 1, 1)
+    # Parametry detektora Metashape - 4-5
+    tolerance_label = QtWidgets.QLabel("Tolerancja detektora [0-100]")
+    tolerance_spin = QtWidgets.QSpinBox()
+    tolerance_spin.setRange(0, 100)
+    tolerance_spin.setValue(50)
+    grid_gcp.addWidget(tolerance_label, 4, 0)
+    grid_gcp.addWidget(tolerance_spin, 5, 0)
 
-    filter_spin = QtWidgets.QDoubleSpinBox()
-    filter_spin.setRange(0.1, 20)
-    filter_spin.setSingleStep(0.1)
-    filter_spin.setDecimals(2)
-    filter_spin.setValue(1.0)
-    grid_gcp.addWidget(QtWidgets.QLabel("Próg filtracji (błąd reprojekcji) [px]"), 2, 0)
-    grid_gcp.addWidget(filter_spin, 3, 0)
+    max_residual_label = QtWidgets.QLabel("Maks. odchyłka detektora [px]")
+    max_residual_spin = QtWidgets.QDoubleSpinBox()
+    max_residual_spin.setRange(0.1, 100)
+    max_residual_spin.setValue(5)
+    grid_gcp.addWidget(max_residual_label, 4, 1)
+    grid_gcp.addWidget(max_residual_spin, 5, 1)
+
+    method_widgets = {
+        "metashape": [tolerance_label, tolerance_spin, max_residual_label, max_residual_spin],
+        "corners": [search_win_label, search_win_spin],
+    }
+
+    def update_method_params():
+        current = method_combo.currentData()
+        for key, widgets in method_widgets.items():
+            for w in widgets:
+                w.setVisible(key == current)
+
+    method_combo.currentIndexChanged.connect(lambda *a: update_method_params())
+    update_method_params()
 
     gcp_info = QtWidgets.QLabel(
         "Przed uruchomieniem pomierz ręcznie w Metashape co najmniej 3 fotopunkty "
         "(każdy na co najmniej 2 zdjęciach).")
     gcp_info.setWordWrap(True)
 
+    # Filtracja osnowy
+    box_filter = QtWidgets.QGroupBox("Filtracja osnowy")
+    grid_filter = QtWidgets.QGridLayout(box_filter)
+    grid_filter.setColumnStretch(0, 1)
+    grid_filter.setColumnStretch(1, 1)
+
+    filter_spin = QtWidgets.QDoubleSpinBox()
+    filter_spin.setRange(0.1, 20)
+    filter_spin.setSingleStep(0.1)
+    filter_spin.setDecimals(2)
+    filter_spin.setValue(1.0)
+    grid_filter.addWidget(QtWidgets.QLabel("Próg filtracji (błąd reprojekcji) [px]"), 0, 0)
+    grid_filter.addWidget(filter_spin, 1, 0)
+
     tab_gcp = QtWidgets.QWidget()
     tab_gcp_layout = QtWidgets.QVBoxLayout(tab_gcp)
     tab_gcp_layout.addWidget(gcp_info)
     tab_gcp_layout.addWidget(box_gcp)
+    tab_gcp_layout.addWidget(box_filter)
     tab_gcp_layout.addStretch(1)
     tabs.addTab(tab_gcp, "Pomiar osnowy")
 
-    # SEKCJA 3 - Parametry generowania produktów (zakładka 2)
+    # SEKCJA 3 - Parametry generowania produktów
     box2 = QtWidgets.QGroupBox("Produkty")
     grid2 = QtWidgets.QGridLayout(box2)
     for c in range(2):
@@ -285,7 +332,7 @@ def run_wizard():
     def show_report(title, text):
         rep = QtWidgets.QDialog(dlg)
         rep.setWindowTitle(title)
-        rep.resize(820, 420)
+        rep.resize(860, 680)
         lay = QtWidgets.QVBoxLayout(rep)
         view = QtWidgets.QPlainTextEdit(text)
         view.setReadOnly(True)
@@ -331,11 +378,9 @@ def run_wizard():
             "search_win": search_win_spin.value(),
             "max_dist": max_dist_spin.value(),
             "filter_px": filter_spin.value(),
-            # "gcp_method": method_combo.currentText(),
-            # "tolerance": tolerance_spin.value(),
-            # "search_radius": radius_spin.value(),
-            # "outlier_px": outlier_spin.value(),
-            # "opencv_params": opencv_edit.text().strip(),
+            "gcp_method": method_combo.currentData(),
+            "tolerance": tolerance_spin.value(),
+            "max_residual": max_residual_spin.value(),
         }
 
     dlg.setWindowModality(QtCore.Qt.NonModal)
