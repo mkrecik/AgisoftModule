@@ -5,7 +5,11 @@ import Metashape
 from scripts.utils import ActiveDocument, ActiveChunk
 from scripts.markers import ImportMarkers
 from scripts.gcp import FilterMarkerProjections
-from scripts.detectors import AutoMeasureMarkers, DetectMarkersMetashape
+from scripts.detectors import (
+    AutoMeasureMarkers,
+    DetectMarkersMetashape,
+    AutoMeasureMarkersTemplate
+)
 from scripts.report import (AllReprojErrors, CoordRms, MarkerReport,
                             MethodHeader, SaveStage2Info)
 
@@ -34,7 +38,27 @@ def AddPhotosFromFolder(folder, chunk_name):
     print("Wczytano %d zdjęć z folderu" % len(photos))
     return True
 
+def SetCameraCrs(convert_to_project):
+    chunk = ActiveChunk()
 
+    wgs84 = Metashape.CoordinateSystem("EPSG::4326")
+
+    if convert_to_project:
+        for camera in chunk.cameras:
+            coord = camera.reference.location
+
+            if coord:
+                camera.reference.location = Metashape.CoordinateSystem.transform(
+                    coord, wgs84, chunk.crs
+                )
+
+        chunk.camera_crs = chunk.crs
+        print("Współrzędne GPS zdjęć przeliczone do układu projektu")
+    else:
+        chunk.camera_crs = wgs84
+        print("Układ współrzędnych zdjęć ustawiony na WGS 84")
+
+        
 def AlignCameras(downscale):
     chunk = ActiveChunk()
     chunk.matchPhotos(downscale=downscale, generic_preselection=True,
@@ -87,14 +111,15 @@ def GenerateSelectedProducts(downscale, do_pointcloud, do_model, do_dem, do_orth
 
 
 def RunStage1(values):
-    # Dodanie zdjęć z folderu
+    # 1. Dodanie zdjęć z folderu
     if not AddPhotosFromFolder(values["photos_dir"], values["chunk_name"]):
         return False
     SetChunkCrs(values["chunk_crs"])
-    # Import osnowy
+    SetCameraCrs(values["convert_camera_to_project"])
+    # 2. Import osnowy
     if values["gcp_file"] and values["gcp_crs"] is not None:
         ImportMarkers(values["gcp_crs"], values["chunk_crs"], values["gcp_file"])
-    # Wyrównanie zdjęć
+    # 3. Wyrównanie zdjęć
     AlignCameras(values["align_downscale"])
     return True
 
@@ -123,11 +148,30 @@ def RunStage2(values):
 
     # 2. automatyczny pomiar pozostałych rzutów
     method = values.get("gcp_method", "corners")
+
     if method == "metashape":
-        auto = DetectMarkersMetashape(values["tolerance"], values["max_residual"],
-                                      values["max_dist"])
+        auto = DetectMarkersMetashape(
+            values["tolerance"],
+            values["max_residual"],
+            values["max_dist"]
+        )
+
+    elif method == "corners":
+        auto = AutoMeasureMarkers(
+            values["search_win"],
+            values["max_dist"]
+        )
+
+    elif method == "template":
+        auto = AutoMeasureMarkersTemplate(
+            values["search_win"],
+            values["max_dist"],
+            values["template_size"],
+            values["template_min_score"]
+        )
+
     else:
-        auto = AutoMeasureMarkers(values["search_win"], values["max_dist"])
+        raise ValueError("Nieznana metoda wykrywania: %s" % method)
 
     # 3. wyrównanie z nowymi pomiarami, potem filtracja odstających
     Realign()
@@ -148,5 +192,6 @@ def RunStage2(values):
 
 
 def RunStage3(values):
+    # 1. Generowanie produktów
     GenerateSelectedProducts(values["product_quality"], values["do_pointcloud"],
                              values["do_model"], values["do_dem"], values["do_ortho"])

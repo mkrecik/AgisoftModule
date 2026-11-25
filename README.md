@@ -53,10 +53,10 @@
 
 **na 5**
 
-- [ ] Wykrywanie fotopunktów dodatkowymi metodami
-  - [x] Detektor narożników (na 4)
-  - [ ] Detektor szachownic `detectMarkers`
-  - [ ] .....
+- [x] Wykrywanie fotopunktów dodatkowymi metodami
+  - [x] Detektor narożników (Open CV
+  - [x] Detektor szachownic `detectMarkers`
+  - [x] Detektor ze wzoru (OpenCV, `matchTemplate`)
 - [x] Obliczenie
   - [x] średni błąd reprojekcji dla fotopunktów
   - [x] kompletność wykryć

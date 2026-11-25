@@ -54,6 +54,13 @@ def run_wizard():
     chunk_crs_btn = QtWidgets.QPushButton("...")
     chunk_crs_btn.setFixedWidth(32)
 
+    camera_crs_check = QtWidgets.QCheckBox(
+        "Przelicz współrzędne GPS zdjęć do układu projektu"
+    )
+    camera_crs_check.setChecked(False)
+
+    grid1.addWidget(camera_crs_check, 6, 0, 1, 2)
+
     # Plik osnowy - 4-5, 0
     gcp_edit = QtWidgets.QLineEdit()
     gcp_btn = QtWidgets.QPushButton("...")
@@ -169,9 +176,35 @@ def run_wizard():
     grid_gcp.addWidget(max_residual_label, 4, 1)
     grid_gcp.addWidget(max_residual_spin, 5, 1)
 
+    # Parametry Template Matching
+    template_size_label = QtWidgets.QLabel("Rozmiar wzorca [px]")
+    template_size_spin = QtWidgets.QSpinBox()
+    template_size_spin.setRange(3, 101)
+    template_size_spin.setSingleStep(2)
+    template_size_spin.setValue(45)
+    grid_gcp.addWidget(template_size_label, 6, 0)
+    grid_gcp.addWidget(template_size_spin, 7, 0)
+
+    min_score_label = QtWidgets.QLabel("Minimalne podobieństwo [0-1]")
+    min_score_spin = QtWidgets.QDoubleSpinBox()
+    min_score_spin.setRange(0.1, 1.0)
+    min_score_spin.setSingleStep(0.05)
+    min_score_spin.setDecimals(2)
+    min_score_spin.setValue(0.50)
+    grid_gcp.addWidget(min_score_label, 6, 1)
+    grid_gcp.addWidget(min_score_spin, 7, 1)
+
     method_widgets = {
-        "metashape": [tolerance_label, tolerance_spin, max_residual_label, max_residual_spin],
+        "metashape": [
+            tolerance_label, tolerance_spin,
+            max_residual_label, max_residual_spin
+        ],
         "corners": [search_win_label, search_win_spin],
+        "template": [
+            search_win_label, search_win_spin,
+            template_size_label, template_size_spin,
+            min_score_label, min_score_spin
+        ],
     }
 
     def update_method_params():
@@ -381,6 +414,9 @@ def run_wizard():
             "gcp_method": method_combo.currentData(),
             "tolerance": tolerance_spin.value(),
             "max_residual": max_residual_spin.value(),
+            "template_size": template_size_spin.value(),
+            "template_min_score": min_score_spin.value(),
+            "convert_camera_to_project": camera_crs_check.isChecked(),
         }
 
     dlg.setWindowModality(QtCore.Qt.NonModal)
